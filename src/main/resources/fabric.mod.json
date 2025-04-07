@@ -5,7 +5,7 @@
 	"name": "World Access",
 	"description": "This is an example description! Tell everyone what your mod is about!",
 	"authors": [
-		"Me!"
+		"Mabeeck"
 	],
 	"contact": {
 		"homepage": "https://fabricmc.net/",
@@ -22,13 +22,6 @@
 			"mabeeck.worldaccess.WorldAccessClient"
 		]
 	},
-	"mixins": [
-		"world-access.mixins.json",
-		{
-			"config": "world-access.client.mixins.json",
-			"environment": "client"
-		}
-	],
 	"depends": {
 		"fabricloader": ">=0.16.10",
 		"minecraft": "~1.21.1",
