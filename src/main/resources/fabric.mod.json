@@ -3,15 +3,15 @@
 	"id": "world-access",
 	"version": "${version}",
 	"name": "World Access",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "This mod is intended to let admins remotely make changes to the world files. Currently only supports the datapacks folder.",
 	"authors": [
 		"Mabeeck"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://modrinth.com/project/worldaccess/",
+		"sources": "https://github.com/Mabeeck/World-Access"
 	},
-	"license": "CC0-1.0",
+	"license": "GPL-3.0-or-later",
 	"icon": "assets/world-access/icon.png",
 	"environment": "*",
 	"entrypoints": {
@@ -23,12 +23,9 @@
 		]
 	},
 	"depends": {
-		"fabricloader": ">=0.16.10",
-		"minecraft": "~1.21.1",
+		"fabricloader": ">=0.16.14",
+		"minecraft": "<=1.21.3 >=1.20.6",
 		"java": ">=21",
 		"fabric-api": "*"
-	},
-	"suggests": {
-		"another-mod": "*"
 	}
 }
