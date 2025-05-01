@@ -15,7 +15,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
@@ -37,6 +36,7 @@ public class WorldAccess implements ModInitializer {
 	public static final Identifier MANAGEMENT_CHANNEL = Identifier.of(MOD_ID, "management");
 	public static final int WritePermissionLevel = 4;
 	public static final int ReadPermissionLevel = 4;
+
 	// This logger is used to write text to the console and the log file.
 	// It is considered best practice to use your mod id as the logger's name.
 	// That way, it's clear which mod wrote info, warnings, and errors.
@@ -47,7 +47,7 @@ public class WorldAccess implements ModInitializer {
 		public static final PacketCodec<RegistryByteBuf, FilePacket> CODEC = PacketCodec.tuple(
 				PacketCodecs.STRING, FilePacket::file,
 				PacketCodecs.BYTE_ARRAY, FilePacket::data,
-				PacketCodecs.BOOL, FilePacket::append,
+				PacketCodecs.BOOLEAN, FilePacket::append,
 				FilePacket::new);
 
 		@Override
