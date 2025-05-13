@@ -47,7 +47,7 @@ public class WorldAccess implements ModInitializer {
 		public static final PacketCodec<RegistryByteBuf, FilePacket> CODEC = PacketCodec.tuple(
 				PacketCodecs.STRING, FilePacket::file,
 				PacketCodecs.BYTE_ARRAY, FilePacket::data,
-				PacketCodecs.BOOLEAN, FilePacket::append,
+				PacketCodecs.BOOL, FilePacket::append,
 				FilePacket::new);
 
 		@Override
