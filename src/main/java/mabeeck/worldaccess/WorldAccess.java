@@ -124,7 +124,7 @@ public class WorldAccess implements ModInitializer {
 									WorldAccess.LOGGER.error(context.player().getName() + " sent undefined delete instruction: " + payload.info());
 									return;
 								}
-								FileUtils.deleteDirectory(path.toFile());
+								FileUtils.deleteDirectory(path.resolve("datapacks").toFile());
 							} catch (IOException e) {
 								WorldAccess.LOGGER.error(e.getMessage());
 							}
