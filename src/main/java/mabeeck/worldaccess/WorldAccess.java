@@ -15,6 +15,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
@@ -34,8 +35,18 @@ public class WorldAccess implements ModInitializer {
 	public static final String MOD_ID = "world-access";
 	public static final Identifier FILE_CHANNEL = Identifier.of(MOD_ID, "file");
 	public static final Identifier MANAGEMENT_CHANNEL = Identifier.of(MOD_ID, "management");
-	public static final int WritePermissionLevel = 4;
-	public static final int ReadPermissionLevel = 4;
+	public static int WritePermissionLevel;
+	public static int ReadPermissionLevel;
+	private static boolean StrictFilter = true;
+	private static boolean FilterAllowExtensionless;
+	private static Properties properties = new Properties();
+	public static final String KEY_FILTER_EXTENSIONS = "filterFileExtensions";
+	public static final String KEY_FILTER_HEADERS = "filterHeaders";
+	public static final String KEY_FILTER_STRICT = "filterMode";
+	public static final String KEY_PERMISSIONLEVEL_WRITE = "writePermissionLevel";
+	public static final String KEY_PERMISSIONLEVEL_READ = "readPermissionLevel";
+	public static final String KEY_ALLOW_EXTENSIONLESS = "allowExtensionless";
+
 
 	// This logger is used to write text to the console and the log file.
 	// It is considered best practice to use your mod id as the logger's name.
@@ -70,11 +81,117 @@ public class WorldAccess implements ModInitializer {
 	}
 
 
+	public static boolean filter(String file, byte[] data) {
+		/*if (data.length<2) {
+			LOGGER.warn("data.length<2: {} {}",file,Hex.encodeHex(data));
+		}*/
+
+		// Filter by filename
+		String[] extensions = properties.getProperty(KEY_FILTER_EXTENSIONS).replace(" ","").split(",");
+		String ext = file.split("\\.")[file.split("\\.").length - 1];
+		if (!(file.split("\\.").length == 1&&FilterAllowExtensionless)) {
+			boolean matched = false;
+			for (String i : extensions) {
+				if (Objects.equals(i, ext)) {
+					if (StrictFilter) {
+						matched = true;
+						break;
+					} else {
+						LOGGER.warn("Filtered: Blacklisted file extension");
+						return false;
+					}
+				}
+			}
+			if (StrictFilter&&!matched) {
+				LOGGER.warn("Filtered: File extension not in whitelist");
+				return false;
+			}
+		}
+
+		// Filter by header
+		String[] forbidden_headers = properties.getProperty(KEY_FILTER_HEADERS).replace(" ","").split(",");
+
+		for (String el : forbidden_headers) {
+			boolean flagged = true;
+			try {
+				byte[] header = org.apache.commons.codec.binary.Hex.decodeHex(el);
+				for (int i=0;i<Math.min(header.length, data.length);i++) {
+					if (header[i] != data[i]) {
+						flagged = false;
+						break;
+					}
+				}
+			} catch (org.apache.commons.codec.DecoderException e) {
+                LOGGER.error("Invalid file header: {}\nSkipping this filter.",el);
+				flagged = false;
+			}
+			if (flagged) {
+				LOGGER.warn("Filtered: Blacklisted header: "+el);
+				return false;
+			}
+		}
+		return true;
+	}
+
+
 	@Override
 	public void onInitialize() {
 		// This code runs as soon as Minecraft is in a mod-load-ready state.
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
+
+		try {
+			if (!new File("./config").isDirectory()) {
+				LOGGER.info("Cannot find config folder. Creating one.");
+				new File("config").mkdir();
+				return;
+			}
+			properties.load(new FileInputStream("config/WorldAccess.properties"));
+		} catch (IOException e) {
+			LOGGER.info("Couldn't find config file. Resorting to defaults.");
+			properties.setProperty(KEY_FILTER_STRICT, "whitelist");
+			properties.setProperty(KEY_FILTER_EXTENSIONS, "txt, md, mcfunction, mcmeta, json, nbt, ogg");
+			properties.setProperty(KEY_FILTER_HEADERS,
+					// ISO FiLes
+					"4344303031, 4552020000, 4349534F, 4441410000000000, " +
+							// Executables
+							"23407E5E, 43723234, 4D5A900003, 504B0304, 7F454C46, " +
+							// Java Bytecode
+							"CAFEBABE, 4A4152435300");
+			properties.setProperty(KEY_PERMISSIONLEVEL_WRITE, "4");
+			properties.setProperty(KEY_PERMISSIONLEVEL_READ, "4");
+			properties.setProperty(KEY_ALLOW_EXTENSIONLESS, "true");
+			try {
+				properties.store(new FileOutputStream("config/WorldAccess.properties"), "WorldAccess config");
+			} catch (IOException e2) {
+				LOGGER.error("Could not create config file!", e2);
+			}
+		}
+		if (Objects.equals(properties.getProperty(KEY_FILTER_STRICT).toUpperCase(),"WHITELIST")||Objects.equals(properties.getProperty(KEY_FILTER_STRICT).toUpperCase(),"BLACKLIST")) {
+			StrictFilter = Objects.equals(properties.getProperty(KEY_FILTER_STRICT).toUpperCase(),"WHITELIST");
+		} else {
+			LOGGER.error(KEY_FILTER_STRICT+" was not set correctly. Must be either whitelist or blacklist.\n" +
+					"WorldAccess will not load until this is resolved.");
+			return;
+		}
+		if (Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"1")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"2")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"3")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"4")) {
+			ReadPermissionLevel = Integer.parseInt(properties.getProperty(KEY_PERMISSIONLEVEL_READ));
+		} else {
+			LOGGER.error(KEY_PERMISSIONLEVEL_READ+" must be 1|2|3|4.\nWorldAccess will not load until this is resolved.");
+			return;
+		}
+		if (Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"1")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"2")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"3")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"4")) {
+			ReadPermissionLevel = Integer.parseInt(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE));
+		} else {
+			LOGGER.error(KEY_PERMISSIONLEVEL_WRITE+" must be 1|2|3|4.\nWorldAccess will not load until this is resolved.");
+			return;
+		}
+		if (Objects.equals(properties.getProperty(KEY_ALLOW_EXTENSIONLESS).toLowerCase(),"true")||Objects.equals(properties.getProperty(KEY_ALLOW_EXTENSIONLESS).toLowerCase(),"false")) {
+			FilterAllowExtensionless = Objects.equals(properties.getProperty(KEY_ALLOW_EXTENSIONLESS).toLowerCase(),"true");
+		} else {
+			LOGGER.error(KEY_ALLOW_EXTENSIONLESS+" must be false|true.\nWorldAccess will not load until this is resolved.");
+			return;
+		}
 
 		PayloadTypeRegistry.playS2C().register(FilePacket.ID, FilePacket.CODEC);
 		PayloadTypeRegistry.playS2C().register(ManagementPacket.ID, ManagementPacket.CODEC);
@@ -144,7 +261,7 @@ public class WorldAccess implements ModInitializer {
 						LOGGER.error(e.getMessage());
 					}
 				} else {
-					LOGGER.warn("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getUuidAsString(), context.player().getName().toString());
+					LOGGER.warn("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getUuidAsString(), context.player().getName().getString());
 				}
 			});
 		});
@@ -155,13 +272,13 @@ public class WorldAccess implements ModInitializer {
 						Path path = FabricLoader.getInstance().getGameDir();
 						Properties properties = new Properties();
 						properties.load(new FileInputStream(new File(path.resolve("server.properties").toUri())));
-						path = path.resolve(Paths.get(properties.getProperty("level-name"))).toAbsolutePath().normalize();
+						path = path.resolve(Paths.get(properties.getProperty("level-name"))).resolve("datapacks").toAbsolutePath().normalize();
 						if (!Files.isDirectory(path)) {
 							new File(path.toUri()).mkdirs();
 						}
 						Path file = path.resolve(payload.file()).normalize().toAbsolutePath();
 						try {
-							if (file.startsWith(path)) {
+							if (file.startsWith(path)&&filter(file.toString(), payload.data())) {
 								if (payload.append()) {
 									Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 								} else {

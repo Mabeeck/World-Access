@@ -16,10 +16,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.server.command.CommandManager;
 import net.minecraft.text.Text;
 
 public class WorldAccessClient implements ClientModInitializer {
@@ -64,7 +62,7 @@ public class WorldAccessClient implements ClientModInitializer {
 				}
 				Path file = path.resolve(payload.file()).normalize();
 				try {
-					if (file.startsWith(path)) {
+					if (file.startsWith(path)&&WorldAccess.filter(file.toString(), payload.data())) {
 						if (payload.append()) {
 							Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 						} else {
