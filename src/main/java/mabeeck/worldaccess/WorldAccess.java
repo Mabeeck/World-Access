@@ -278,14 +278,18 @@ public class WorldAccess implements ModInitializer {
 						}
 						Path file = path.resolve(payload.file()).normalize().toAbsolutePath();
 						try {
-							if (file.startsWith(path)&&filter(file.toString(), payload.data())) {
-								if (payload.append()) {
-									Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+							if (file.startsWith(path)) {
+								if (filter(file.toString(), payload.data())) {
+									if (payload.append()) {
+										Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+									} else {
+										Files.write(file, payload.data());
+									}
 								} else {
-									Files.write(file, payload.data());
+									WorldAccess.LOGGER.warn("Player with UUID {}({}) sent write instruction for filtered file.", context.player().getUuidAsString(), context.player().getName().toString());
 								}
 							} else {
-								WorldAccess.LOGGER.error("Player with UUID {}({}) sent write instruction for out of bounds file: {}\nWrite requests are constrained to {}", context.player().getUuidAsString(), context.player().getName(), file, path);
+								WorldAccess.LOGGER.error("Player with UUID {}({}) sent write instruction for out of bounds file: {}\nWrite requests are constrained to {}", context.player().getUuidAsString(), context.player().getName().toString(), file, path);
 							}
 						} catch (IOException e) {
 							WorldAccess.LOGGER.error(e.getMessage());
