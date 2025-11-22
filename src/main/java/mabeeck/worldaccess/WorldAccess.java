@@ -181,7 +181,7 @@ public class WorldAccess implements ModInitializer {
 			return;
 		}
 		if (Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"1")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"2")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"3")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"4")) {
-			ReadPermissionLevel = Integer.parseInt(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE));
+			WritePermissionLevel = Integer.parseInt(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE));
 		} else {
 			LOGGER.error(KEY_PERMISSIONLEVEL_WRITE+" must be 1|2|3|4.\nWorldAccess will not load until this is resolved.");
 			return;
