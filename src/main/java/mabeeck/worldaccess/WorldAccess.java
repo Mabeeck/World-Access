@@ -292,7 +292,7 @@ public class WorldAccess implements ModInitializer {
 								WorldAccess.LOGGER.error("Player with UUID {}({}) sent write instruction for out of bounds file: {}\nWrite requests are constrained to {}", context.player().getUuidAsString(), context.player().getName().toString(), file, path);
 							}
 						} catch (IOException e) {
-							WorldAccess.LOGGER.error(e.getMessage());
+							WorldAccess.LOGGER.error("IOException while writing file: {}",e.getMessage());
 						}
 					} catch (Exception e) {
 						LOGGER.error(e.getMessage());
