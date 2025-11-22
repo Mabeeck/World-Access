@@ -272,18 +272,18 @@ public class WorldAccess implements ModInitializer {
 						Path path = FabricLoader.getInstance().getGameDir();
 						Properties properties = new Properties();
 						properties.load(new FileInputStream(new File(path.resolve("server.properties").toUri())));
-						path = path.resolve(Paths.get(properties.getProperty("level-name"))).resolve("datapacks").toAbsolutePath().normalize();
+						path = path.resolve(Paths.get(properties.getProperty("level-name"))).toAbsolutePath().normalize();
 						if (!Files.isDirectory(path)) {
 							new File(path.toUri()).mkdirs();
 						}
 						Path file = path.resolve(payload.file()).normalize().toAbsolutePath();
 						try {
-							if (file.startsWith(path)) {
+							if (file.startsWith(path.resolve("datapacks"))) {
 								if (filter(file.toString(), payload.data())) {
 									if (payload.append()) {
 										Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 									} else {
-										Files.write(file, payload.data());
+										Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE);
 									}
 								} else {
 									WorldAccess.LOGGER.warn("Player with UUID {}({}) sent write instruction for filtered file.", context.player().getUuidAsString(), context.player().getName().toString());
