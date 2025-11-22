@@ -261,7 +261,7 @@ public class WorldAccess implements ModInitializer {
 						LOGGER.error(e.getMessage());
 					}
 				} else {
-					LOGGER.warn("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getUuidAsString(), context.player().getName().getString());
+					LOGGER.info("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getUuidAsString(), context.player().getName().getString());
 				}
 			});
 		});
@@ -298,7 +298,7 @@ public class WorldAccess implements ModInitializer {
 						LOGGER.error(e.getMessage());
 					}
 				} else {
-					LOGGER.warn("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getUuidAsString(), context.player().getName().toString());
+					LOGGER.info("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getUuidAsString(), context.player().getName().toString());
 				}
 			});
 		});
