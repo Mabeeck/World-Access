@@ -37,7 +37,7 @@ public class WorldAccess implements ModInitializer {
 	public static final Identifier MANAGEMENT_CHANNEL = Identifier.of(MOD_ID, "management");
 	public static int WritePermissionLevel;
 	public static int ReadPermissionLevel;
-	private static boolean StrictFilter = true;
+	private static boolean StrictFilter;
 	private static boolean FilterAllowExtensionless;
 	private static Properties properties = new Properties();
 	public static final String KEY_FILTER_EXTENSIONS = "filterFileExtensions";
@@ -140,6 +140,7 @@ public class WorldAccess implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
+		// Load config
 		try {
 			if (!new File("./config").isDirectory()) {
 				LOGGER.info("Cannot find config folder. Creating one.");
@@ -148,9 +149,12 @@ public class WorldAccess implements ModInitializer {
 			}
 			properties.load(new FileInputStream("config/WorldAccess.properties"));
 		} catch (IOException e) {
+			// If no config exists create one
 			LOGGER.info("Couldn't find config file. Resorting to defaults.");
 			properties.setProperty(KEY_FILTER_STRICT, "whitelist");
-			properties.setProperty(KEY_FILTER_EXTENSIONS, "txt, md, mcfunction, mcmeta, json, nbt, ogg");
+			properties.setProperty(KEY_FILTER_EXTENSIONS, "txt, md, mcfunction, mcmeta, json, nbt, ogg"+
+					// Git related files
+					", gitattributes, gitignore");
 			properties.setProperty(KEY_FILTER_HEADERS,
 					// ISO FiLes
 					"4344303031, 4552020000, 4349534F, 4441410000000000, " +
@@ -167,6 +171,8 @@ public class WorldAccess implements ModInitializer {
 				LOGGER.error("Could not create config file!", e2);
 			}
 		}
+
+		// Set settings from config and throw errors if the config is incorrectly written
 		if (Objects.equals(properties.getProperty(KEY_FILTER_STRICT).toUpperCase(),"WHITELIST")||Objects.equals(properties.getProperty(KEY_FILTER_STRICT).toUpperCase(),"BLACKLIST")) {
 			StrictFilter = Objects.equals(properties.getProperty(KEY_FILTER_STRICT).toUpperCase(),"WHITELIST");
 		} else {
@@ -206,19 +212,23 @@ public class WorldAccess implements ModInitializer {
 								context.getSource().sendFeedback(() -> Text.literal("Pulling everything!"), true);
 								ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new ManagementPacket(1, "*"));
 								try {
+									// Get world folder
 									Path path = FabricLoader.getInstance().getGameDir();
 									Properties properties = new Properties();
 									properties.load(new FileInputStream(new File(path.resolve("server.properties").toUri())));
 									path = path.resolve(Paths.get(properties.getProperty("level-name")));
-									Stream<Path> files = Files.walk(path.resolve("datapacks"));
+
+									Stream<Path> files = Files.walk(path.resolve("datapacks")).filter(it -> !it.getFileName().toString().equals(".git"));
+									// Delete everything in the client directory for this server
 									ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new WorldAccess.ManagementPacket(1, "*"));
+									// Send the directories and files to the client
 									for (Path el : files.toList()) {
 										if (Files.isDirectory(el)) {
 											ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new WorldAccess.ManagementPacket(2, path.relativize(el).toString()));
 										} else {
 											ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new WorldAccess.FilePacket(path.relativize(el).toString(), Files.readAllBytes(el), false));
 										}
-										WorldAccess.LOGGER.info(el.toString());
+										WorldAccess.LOGGER.debug(el.toString());
 									}
 								} catch (IOException e) {
 									throw new RuntimeException(e);
@@ -279,14 +289,14 @@ public class WorldAccess implements ModInitializer {
 						Path file = path.resolve(payload.file()).normalize().toAbsolutePath();
 						try {
 							if (file.startsWith(path.resolve("datapacks"))) {
-								if (filter(file.toString(), payload.data())) {
+								if (filter(file.getFileName().toString(), payload.data())) {
 									if (payload.append()) {
 										Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 									} else {
 										Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE);
 									}
 								} else {
-									WorldAccess.LOGGER.warn("Player with UUID {}({}) sent write instruction for filtered file.", context.player().getUuidAsString(), context.player().getName().toString());
+									WorldAccess.LOGGER.warn("Player with UUID {}({}) sent write instruction for filtered file: {}", context.player().getUuidAsString(), context.player().getName().toString(), file);
 								}
 							} else {
 								WorldAccess.LOGGER.error("Player with UUID {}({}) sent write instruction for out of bounds file: {}\nWrite requests are constrained to {}", context.player().getUuidAsString(), context.player().getName().toString(), file, path);

@@ -62,7 +62,7 @@ public class WorldAccessClient implements ClientModInitializer {
 				}
 				Path file = path.resolve(payload.file()).normalize();
 				try {
-					if (file.startsWith(path)&&WorldAccess.filter(file.toString(), payload.data())) {
+					if (file.startsWith(path)&&WorldAccess.filter(file.getFileName().toString(), payload.data())) {
 						if (payload.append()) {
 							Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 						} else {
@@ -81,28 +81,23 @@ public class WorldAccessClient implements ClientModInitializer {
 				if (!MinecraftClient.getInstance().getCurrentServerEntry().isLocal()) {
 					dispatcher.register(ClientCommandManager.literal("worldaccess-push")
 							.executes(context -> {
-								if (context.getSource().hasPermissionLevel(WorldAccess.WritePermissionLevel)) {
-									context.getSource().sendFeedback(Text.literal("Pushing everything!"));
-									try {
-										Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(MinecraftClient.getInstance().getCurrentServerEntry().address).toAbsolutePath().normalize();
-										Stream<Path> files = Files.walk(path.resolve("datapacks"));
-										ClientPlayNetworking.send(new WorldAccess.ManagementPacket(1, "datapack *"));
-										for (Path el : files.toList()) {
-											if (Files.isDirectory(el)) {
-												ClientPlayNetworking.send(new WorldAccess.ManagementPacket(2, path.relativize(el).toString()));
-											} else {
-												ClientPlayNetworking.send(new WorldAccess.FilePacket(path.relativize(el).toString(), Files.readAllBytes(el), false));
-											}
-											WorldAccess.LOGGER.info(el.toString());
+								context.getSource().sendFeedback(Text.literal("Pushing everything!"));
+								try {
+									Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(MinecraftClient.getInstance().getCurrentServerEntry().address).toAbsolutePath().normalize();
+									Stream<Path> files = Files.walk(path.resolve("datapacks")).filter(it -> !it.getFileName().toString().equals(".git"));
+									ClientPlayNetworking.send(new WorldAccess.ManagementPacket(1, "datapack *"));
+									for (Path el : files.toList()) {
+										if (Files.isDirectory(el)) {
+											ClientPlayNetworking.send(new WorldAccess.ManagementPacket(2, path.relativize(el).toString()));
+										} else {
+											ClientPlayNetworking.send(new WorldAccess.FilePacket(path.relativize(el).toString(), Files.readAllBytes(el), false));
 										}
-									} catch (IOException e) {
-										throw new RuntimeException(e);
+										WorldAccess.LOGGER.debug(el.toString());
 									}
-									return 0;
-								} else {
-									context.getSource().sendError(Text.literal("Must have permission level " + WorldAccess.WritePermissionLevel + " or above!"));
-									return 0;
+								} catch (IOException e) {
+									throw new RuntimeException(e);
 								}
+								return 0;
 							}));
 				}
 			}
