@@ -109,17 +109,22 @@ public class WorldAccess implements ModInitializer {
 		}
 
 		// Filter by header
-		String[] forbidden_headers = properties.getProperty(KEY_FILTER_HEADERS).replace(" ","").split(",");
+		String[] blacklisted_headers = properties.getProperty(KEY_FILTER_HEADERS).replace(" ","").split(",");
 
-		for (String el : forbidden_headers) {
+		for (String el : blacklisted_headers) {
 			boolean flagged = true;
 			try {
 				byte[] header = org.apache.commons.codec.binary.Hex.decodeHex(el);
-				for (int i=0;i<Math.min(header.length, data.length);i++) {
-					if (header[i] != data[i]) {
-						flagged = false;
-						break;
+				if (header.length <= data.length) {
+					for (int i = 0; i < header.length; i++) {
+						if (header[i] != data[i]) {
+							flagged = false;
+							break;
+						}
 					}
+				} else {
+					// If the file is smaller than the header it is to be compared with then it is not a match
+					flagged=false;
 				}
 			} catch (org.apache.commons.codec.DecoderException e) {
                 LOGGER.error("Invalid file header: {}\nSkipping this filter.",el);
@@ -180,16 +185,16 @@ public class WorldAccess implements ModInitializer {
 					"WorldAccess will not load until this is resolved.");
 			return;
 		}
-		if (Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"1")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"2")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"3")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"4")) {
+		if (Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"0")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"1")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"2")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"3")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_READ),"4")) {
 			ReadPermissionLevel = Integer.parseInt(properties.getProperty(KEY_PERMISSIONLEVEL_READ));
 		} else {
-			LOGGER.error(KEY_PERMISSIONLEVEL_READ+" must be 1|2|3|4.\nWorldAccess will not load until this is resolved.");
+			LOGGER.error(KEY_PERMISSIONLEVEL_READ+" must be 0|1|2|3|4.\nWorldAccess will not load until this is resolved.");
 			return;
 		}
-		if (Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"1")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"2")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"3")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"4")) {
+		if (Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"0")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"1")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"2")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"3")||Objects.equals(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE),"4")) {
 			WritePermissionLevel = Integer.parseInt(properties.getProperty(KEY_PERMISSIONLEVEL_WRITE));
 		} else {
-			LOGGER.error(KEY_PERMISSIONLEVEL_WRITE+" must be 1|2|3|4.\nWorldAccess will not load until this is resolved.");
+			LOGGER.error(KEY_PERMISSIONLEVEL_WRITE+" must be 0|1|2|3|4.\nWorldAccess will not load until this is resolved.");
 			return;
 		}
 		if (Objects.equals(properties.getProperty(KEY_ALLOW_EXTENSIONLESS).toLowerCase(),"true")||Objects.equals(properties.getProperty(KEY_ALLOW_EXTENSIONLESS).toLowerCase(),"false")) {
@@ -289,9 +294,15 @@ public class WorldAccess implements ModInitializer {
 						Path file = path.resolve(payload.file()).normalize().toAbsolutePath();
 						try {
 							if (file.startsWith(path.resolve("datapacks"))) {
-								if (filter(file.getFileName().toString(), payload.data())) {
+								// Append mode bypasses filters as headers have already been filtered with the first packet
+								if (filter(file.getFileName().toString(), payload.data())||payload.append) {
 									if (payload.append()) {
-										Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+										if (Files.exists(file)&&Files.size(file)>WorldAccess.MAX_PACKET_SIZE-1) {
+											Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+										} else {
+											// Possible attempt to bypass header filters
+											LOGGER.warn("Player with UUID {}({}) sent write instruction for filtered(non-standard-behaviour) file: {}", context.player().getUuidAsString(), context.player().getName().toString(), file);
+										}
 									} else {
 										Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE);
 									}
@@ -312,5 +323,6 @@ public class WorldAccess implements ModInitializer {
 				}
 			});
 		});
+		LOGGER.info("WorldAccess loaded!");
 	}
 }

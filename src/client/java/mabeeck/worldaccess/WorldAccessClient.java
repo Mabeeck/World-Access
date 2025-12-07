@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.rmi.RemoteException;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Stream;
@@ -90,7 +91,14 @@ public class WorldAccessClient implements ClientModInitializer {
 										if (Files.isDirectory(el)) {
 											ClientPlayNetworking.send(new WorldAccess.ManagementPacket(2, path.relativize(el).toString()));
 										} else {
-											ClientPlayNetworking.send(new WorldAccess.FilePacket(path.relativize(el).toString(), Files.readAllBytes(el), false));
+											if (Files.size(el)>WorldAccess.MAX_PACKET_SIZE) {
+												byte[] bytes = Files.readAllBytes(el);
+												for (int i=WorldAccess.MAX_PACKET_SIZE;i<bytes.length;i+=WorldAccess.MAX_PACKET_SIZE) {
+													ClientPlayNetworking.send(new WorldAccess.FilePacket(path.relativize(el).toString(), Arrays.copyOfRange(bytes, i-WorldAccess.MAX_PACKET_SIZE, i), i!=WorldAccess.MAX_PACKET_SIZE));
+												}
+											} else {
+												ClientPlayNetworking.send(new WorldAccess.FilePacket(path.relativize(el).toString(), Files.readAllBytes(el), false));
+											}
 										}
 										WorldAccess.LOGGER.debug(el.toString());
 									}
