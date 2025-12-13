@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.network.RegistryByteBuf;
@@ -46,6 +47,7 @@ public class WorldAccess implements ModInitializer {
 	public static final String KEY_PERMISSIONLEVEL_WRITE = "writePermissionLevel";
 	public static final String KEY_PERMISSIONLEVEL_READ = "readPermissionLevel";
 	public static final String KEY_ALLOW_EXTENSIONLESS = "allowExtensionless";
+	public static final int MAX_PACKET_SIZE = 4096;
 
 
 	// This logger is used to write text to the console and the log file.
