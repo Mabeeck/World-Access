@@ -2,16 +2,12 @@ package mabeeck.worldaccess;
 
 import java.io.File;
 import org.apache.commons.io.FileUtils;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.rmi.RemoteException;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.stream.Stream;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;

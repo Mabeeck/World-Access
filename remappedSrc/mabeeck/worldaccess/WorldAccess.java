@@ -6,7 +6,6 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.network.PacketByteBuf;
 import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.network.RegistryByteBuf;
@@ -141,6 +140,18 @@ public class WorldAccess implements ModInitializer {
 	}
 
 
+	// Recursive directory deletion function which excludes any .git folders
+	public static boolean deleteDatapacks(File directoryToBeDeleted) {
+		File[] allContents = directoryToBeDeleted.listFiles();
+		if (allContents != null) {
+			for (File file : allContents) {
+				deleteDatapacks(file);
+			}
+		}
+		return directoryToBeDeleted.delete();
+	}
+
+
 	@Override
 	public void onInitialize() {
 		// This code runs as soon as Minecraft is in a mod-load-ready state.
@@ -152,6 +163,7 @@ public class WorldAccess implements ModInitializer {
 			if (!new File("./config").isDirectory()) {
 				LOGGER.info("Cannot find config folder. Creating one.");
 				new File("config").mkdir();
+				return;
 			}
 			properties.load(new FileInputStream("config/WorldAccess.properties"));
 		} catch (IOException e) {
@@ -213,7 +225,7 @@ public class WorldAccess implements ModInitializer {
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
 			if (environment.dedicated) {
 			dispatcher.register(CommandManager.literal("worldaccess-pull")
-					.requires(source -> source.isExecutedByPlayer()&&source.getServer().getPermissionLevel(source.getPlayer().getPlayerConfigEntry()).getLevel().getLevel()>=ReadPermissionLevel)
+					.requires(source -> source.isExecutedByPlayer()&&source.hasPermissionLevel(ReadPermissionLevel))
 							.executes(context -> {
 								context.getSource().sendFeedback(() -> Text.literal("Pulling everything!"), true);
 								ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new ManagementPacket(1, "*"));
@@ -245,7 +257,7 @@ public class WorldAccess implements ModInitializer {
 		});
 		ServerPlayNetworking.registerGlobalReceiver(WorldAccess.ManagementPacket.ID, (payload, context) -> {
 			context.server().execute(() -> {
-				if (context.server().getPermissionLevel(context.player().getPlayerConfigEntry()).getLevel().getLevel()>=WritePermissionLevel) {
+				if (context.player().hasPermissionLevel(WritePermissionLevel)) {
 					try {
 						Path path = FabricLoader.getInstance().getGameDir();
 						Properties properties = new Properties();
@@ -283,7 +295,7 @@ public class WorldAccess implements ModInitializer {
 		});
 		ServerPlayNetworking.registerGlobalReceiver(WorldAccess.FilePacket.ID, (payload, context) -> {
 			context.server().execute(() -> {
-				if (context.server().getPermissionLevel(context.player().getPlayerConfigEntry()).getLevel().getLevel()>=WritePermissionLevel) {
+				if (context.player().hasPermissionLevel(WritePermissionLevel)) {
 					try {
 						Path path = FabricLoader.getInstance().getGameDir();
 						Properties properties = new Properties();
