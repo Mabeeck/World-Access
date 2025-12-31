@@ -20,6 +20,8 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 public class WorldAccessClient implements ClientModInitializer {
 	@Override
@@ -27,7 +29,7 @@ public class WorldAccessClient implements ClientModInitializer {
 		// This entrypoint is suitable for setting up client-specific logic, such as rendering.
 		ClientPlayNetworking.registerGlobalReceiver(WorldAccess.ManagementPacket.ID, (payload, context) -> {
 			context.client().execute(() -> {
-				Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(MinecraftClient.getInstance().getCurrentServerEntry().address).toAbsolutePath().normalize();
+				Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(URLEncoder.encode(MinecraftClient.getInstance().getCurrentServerEntry().address, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
 				if (!Files.isDirectory(path)) {
 					new File(path.toUri()).mkdirs();
 				}
@@ -57,7 +59,7 @@ public class WorldAccessClient implements ClientModInitializer {
 		});
 		ClientPlayNetworking.registerGlobalReceiver(WorldAccess.FilePacket.ID, (payload, context) -> {
 			context.client().execute(() -> {
-				Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(MinecraftClient.getInstance().getCurrentServerEntry().address).toAbsolutePath().normalize();
+				Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(URLEncoder.encode(MinecraftClient.getInstance().getCurrentServerEntry().address, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
 				if (!Files.isDirectory(path)) {
 					new File(path.toUri()).mkdirs();
 				}
@@ -84,7 +86,7 @@ public class WorldAccessClient implements ClientModInitializer {
 							.executes(context -> {
 								context.getSource().sendFeedback(Text.literal("Pushing everything!"));
 								try {
-									Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(MinecraftClient.getInstance().getCurrentServerEntry().address).toAbsolutePath().normalize();
+									Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(URLEncoder.encode(MinecraftClient.getInstance().getCurrentServerEntry().address, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
 									Stream<Path> files = Files.walk(path.resolve("datapacks")).filter(it -> !it.getFileName().toString().equals(".git"));
 									ClientPlayNetworking.send(new WorldAccess.ManagementPacket(1, "datapack *"));
 									for (Path el : files.toList()) {
