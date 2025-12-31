@@ -152,7 +152,6 @@ public class WorldAccess implements ModInitializer {
 			if (!new File("./config").isDirectory()) {
 				LOGGER.info("Cannot find config folder. Creating one.");
 				new File("config").mkdir();
-				return;
 			}
 			properties.load(new FileInputStream("config/WorldAccess.properties"));
 		} catch (IOException e) {
