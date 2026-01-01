@@ -45,7 +45,7 @@ public class WorldAccessClient implements ClientModInitializer {
                     }
 				} else if (payload.command() == 2) {
 					try {
-						Path folder = path.resolve(payload.info()).normalize();
+						Path folder = path.resolve(payload.info().replace("\\","/")).normalize();
 						if (folder.startsWith(path)) {
 							folder.toFile().mkdirs();
 						} else {
@@ -63,7 +63,7 @@ public class WorldAccessClient implements ClientModInitializer {
 				if (!Files.isDirectory(path)) {
 					new File(path.toUri()).mkdirs();
 				}
-				Path file = path.resolve(payload.file()).normalize();
+				Path file = path.resolve(payload.file().replace("\\", "/")).normalize();
 				try {
 					if (file.startsWith(path)&&WorldAccess.filter(file.getFileName().toString(), payload.data())) {
 						if (payload.append()) {
