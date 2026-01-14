@@ -263,8 +263,8 @@ public class WorldAccess implements ModInitializer {
 							}
 						} else if (payload.command() == 2) {
 							try {
-								Path folder = path.resolve(payload.info()).normalize().toAbsolutePath();
-								if (folder.startsWith(path)) {
+								Path folder = path.resolve(payload.info().replace("\\","/")).normalize().toAbsolutePath();
+								if (folder.startsWith(path.resolve("datapacks"))) {
 									folder.toFile().mkdirs();
 								} else {
 									WorldAccess.LOGGER.error(context.player().getName() + " sent out of bounds directory creation command: " + folder);
@@ -292,7 +292,7 @@ public class WorldAccess implements ModInitializer {
 						if (!Files.isDirectory(path)) {
 							new File(path.toUri()).mkdirs();
 						}
-						Path file = path.resolve(payload.file()).normalize().toAbsolutePath();
+						Path file = path.resolve(payload.file().replace("\\","/")).normalize().toAbsolutePath();
 						try {
 							if (file.startsWith(path.resolve("datapacks"))) {
 								// Append mode bypasses filters as headers have already been filtered with the first packet
