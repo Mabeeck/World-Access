@@ -1,9 +1,8 @@
 {
 	"required": true,
-	"package": "mabeeck.worldaccess.mixin.client",
+	"package": "mabeeck.worldaccess.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"ExampleClientMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

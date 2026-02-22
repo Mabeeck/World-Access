@@ -213,7 +213,7 @@ public class WorldAccess implements ModInitializer {
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
 			if (environment.dedicated) {
 			dispatcher.register(CommandManager.literal("worldaccess-pull")
-					.requires(source -> source.isExecutedByPlayer()&&source.getServer().getPermissionLevel(source.getPlayer().getPlayerConfigEntry()).getLevel().getLevel()>=ReadPermissionLevel)
+					.requires(source -> source.isExecutedByPlayer()&&source.getPlayer().hasPermissionLevel(ReadPermissionLevel))
 							.executes(context -> {
 								context.getSource().sendFeedback(() -> Text.literal("Pulling everything!"), true);
 								ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new ManagementPacket(1, "*"));
@@ -245,7 +245,7 @@ public class WorldAccess implements ModInitializer {
 		});
 		ServerPlayNetworking.registerGlobalReceiver(WorldAccess.ManagementPacket.ID, (payload, context) -> {
 			context.server().execute(() -> {
-				if (context.server().getPermissionLevel(context.player().getPlayerConfigEntry()).getLevel().getLevel()>=WritePermissionLevel) {
+				if (context.player().hasPermissionLevel(WritePermissionLevel)) {
 					try {
 						Path path = FabricLoader.getInstance().getGameDir();
 						Properties properties = new Properties();
@@ -283,7 +283,7 @@ public class WorldAccess implements ModInitializer {
 		});
 		ServerPlayNetworking.registerGlobalReceiver(WorldAccess.FilePacket.ID, (payload, context) -> {
 			context.server().execute(() -> {
-				if (context.server().getPermissionLevel(context.player().getPlayerConfigEntry()).getLevel().getLevel()>=WritePermissionLevel) {
+				if (context.player().hasPermissionLevel(WritePermissionLevel)) {
 					try {
 						Path path = FabricLoader.getInstance().getGameDir();
 						Properties properties = new Properties();
