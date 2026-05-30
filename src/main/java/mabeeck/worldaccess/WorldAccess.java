@@ -2,23 +2,23 @@ package mabeeck.worldaccess;
 
 import net.fabricmc.api.ModInitializer;
 
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.commands.Commands;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -34,8 +34,8 @@ import java.util.stream.Stream;
 
 public class WorldAccess implements ModInitializer {
 	public static final String MOD_ID = "world-access";
-	public static final Identifier FILE_CHANNEL = Identifier.of(MOD_ID, "file");
-	public static final Identifier MANAGEMENT_CHANNEL = Identifier.of(MOD_ID, "management");
+	public static final Identifier FILE_CHANNEL = Identifier.fromNamespaceAndPath(MOD_ID, "file");
+	public static final Identifier MANAGEMENT_CHANNEL = Identifier.fromNamespaceAndPath(MOD_ID, "management");
 	public static int WritePermissionLevel;
 	public static int ReadPermissionLevel;
 	private static boolean StrictFilter;
@@ -47,7 +47,7 @@ public class WorldAccess implements ModInitializer {
 	public static final String KEY_PERMISSIONLEVEL_WRITE = "writePermissionLevel";
 	public static final String KEY_PERMISSIONLEVEL_READ = "readPermissionLevel";
 	public static final String KEY_ALLOW_EXTENSIONLESS = "allowExtensionless";
-	public static final int MAX_PACKET_SIZE = 4096;
+	public static final int MAX_PACKET_SIZE = 1048576;
 
 
 	// This logger is used to write text to the console and the log file.
@@ -55,29 +55,29 @@ public class WorldAccess implements ModInitializer {
 	// That way, it's clear which mod wrote info, warnings, and errors.
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	public record FilePacket(String file, byte[] data, boolean append) implements CustomPayload {
-		public static final CustomPayload.Id<FilePacket> ID = new CustomPayload.Id<>(WorldAccess.FILE_CHANNEL);
-		public static final PacketCodec<RegistryByteBuf, FilePacket> CODEC = PacketCodec.tuple(
-				PacketCodecs.STRING, FilePacket::file,
-				PacketCodecs.BYTE_ARRAY, FilePacket::data,
-				PacketCodecs.BOOLEAN, FilePacket::append,
+	public record FilePacket(String file, byte[] data, boolean append) implements CustomPacketPayload {
+		public static final CustomPacketPayload.Type<FilePacket> ID = new CustomPacketPayload.Type<>(WorldAccess.FILE_CHANNEL);
+		public static final StreamCodec<RegistryFriendlyByteBuf, FilePacket> CODEC = StreamCodec.composite(
+				ByteBufCodecs.STRING_UTF8, FilePacket::file,
+				ByteBufCodecs.BYTE_ARRAY, FilePacket::data,
+				ByteBufCodecs.BOOL, FilePacket::append,
 				FilePacket::new);
 
 		@Override
-		public CustomPayload.Id<? extends CustomPayload> getId() {
+		public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
 			return ID;
 		}
 	}
 
-	public record ManagementPacket(int command, String info) implements CustomPayload {
-		public static final CustomPayload.Id<ManagementPacket> ID = new CustomPayload.Id<>(WorldAccess.MANAGEMENT_CHANNEL);
-		public static final PacketCodec<RegistryByteBuf, ManagementPacket> CODEC = PacketCodec.tuple(
-				PacketCodecs.INTEGER, ManagementPacket::command,
-				PacketCodecs.STRING, ManagementPacket::info,
+	public record ManagementPacket(int command, String info) implements CustomPacketPayload {
+		public static final CustomPacketPayload.Type<ManagementPacket> ID = new CustomPacketPayload.Type<>(WorldAccess.MANAGEMENT_CHANNEL);
+		public static final StreamCodec<RegistryFriendlyByteBuf, ManagementPacket> CODEC = StreamCodec.composite(
+				ByteBufCodecs.INT, ManagementPacket::command,
+				ByteBufCodecs.STRING_UTF8, ManagementPacket::info,
 				ManagementPacket::new);
 
 		@Override
-		public CustomPayload.Id<? extends CustomPayload> getId() {
+		public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
 			return ID;
 		}
 	}
@@ -205,18 +205,18 @@ public class WorldAccess implements ModInitializer {
 			return;
 		}
 
-		PayloadTypeRegistry.playS2C().register(FilePacket.ID, FilePacket.CODEC);
-		PayloadTypeRegistry.playS2C().register(ManagementPacket.ID, ManagementPacket.CODEC);
-		PayloadTypeRegistry.playC2S().register(FilePacket.ID, FilePacket.CODEC);
-		PayloadTypeRegistry.playC2S().register(ManagementPacket.ID, ManagementPacket.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(FilePacket.ID, FilePacket.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(ManagementPacket.ID, ManagementPacket.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(FilePacket.ID, FilePacket.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(ManagementPacket.ID, ManagementPacket.CODEC);
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-			if (environment.dedicated) {
-			dispatcher.register(CommandManager.literal("worldaccess-pull")
-					.requires(source -> source.isExecutedByPlayer()&&source.getServer().getPermissionLevel(source.getPlayer().getPlayerConfigEntry()).getLevel().getLevel()>=ReadPermissionLevel)
+			if (environment.includeDedicated) {
+			dispatcher.register(Commands.literal("worldaccess-pull")
+					.requires(source -> source.isPlayer()&&source.getServer().getProfilePermissions(source.getPlayer().nameAndId()).level().id()>=ReadPermissionLevel)
 							.executes(context -> {
-								context.getSource().sendFeedback(() -> Text.literal("Pulling everything!"), true);
-								ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new ManagementPacket(1, "*"));
+								context.getSource().sendSuccess(() -> Component.literal("Pulling everything!"), true);
+								ServerPlayNetworking.send(context.getSource().getPlayerOrException(), new ManagementPacket(1, "*"));
 								try {
 									// Get world folder
 									Path path = FabricLoader.getInstance().getGameDir();
@@ -226,13 +226,20 @@ public class WorldAccess implements ModInitializer {
 
 									Stream<Path> files = Files.walk(path.resolve("datapacks")).filter(it -> !it.getFileName().toString().equals(".git"));
 									// Delete everything in the client directory for this server
-									ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new WorldAccess.ManagementPacket(1, "*"));
+									ServerPlayNetworking.send(context.getSource().getPlayerOrException(), new WorldAccess.ManagementPacket(1, "*"));
 									// Send the directories and files to the client
 									for (Path el : files.toList()) {
 										if (Files.isDirectory(el)) {
-											ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new WorldAccess.ManagementPacket(2, path.relativize(el).toString()));
+											ServerPlayNetworking.send(context.getSource().getPlayerOrException(), new WorldAccess.ManagementPacket(2, path.relativize(el).toString()));
 										} else {
-											ServerPlayNetworking.send(context.getSource().getPlayerOrThrow(), new WorldAccess.FilePacket(path.relativize(el).toString(), Files.readAllBytes(el), false));
+											if (Files.size(el)>WorldAccess.MAX_PACKET_SIZE) {
+												byte[] bytes = Files.readAllBytes(el);
+												for (int i=WorldAccess.MAX_PACKET_SIZE;i<=bytes.length+WorldAccess.MAX_PACKET_SIZE-bytes.length%WorldAccess.MAX_PACKET_SIZE;i+=WorldAccess.MAX_PACKET_SIZE) {
+													ServerPlayNetworking.send(context.getSource().getPlayerOrException(), new WorldAccess.FilePacket(path.relativize(el).toString(), Arrays.copyOfRange(bytes, i-WorldAccess.MAX_PACKET_SIZE, Math.min(i, bytes.length)), i!=WorldAccess.MAX_PACKET_SIZE));
+												}
+											} else {
+												ServerPlayNetworking.send(context.getSource().getPlayerOrException(), new WorldAccess.FilePacket(path.relativize(el).toString(), Files.readAllBytes(el), false));
+											}
 										}
 										WorldAccess.LOGGER.debug(el.toString());
 									}
@@ -245,7 +252,7 @@ public class WorldAccess implements ModInitializer {
 		});
 		ServerPlayNetworking.registerGlobalReceiver(WorldAccess.ManagementPacket.ID, (payload, context) -> {
 			context.server().execute(() -> {
-				if (context.server().getPermissionLevel(context.player().getPlayerConfigEntry()).getLevel().getLevel()>=WritePermissionLevel) {
+				if (context.server().getProfilePermissions(context.player().nameAndId()).level().id()>=WritePermissionLevel) {
 					try {
 						Path path = FabricLoader.getInstance().getGameDir();
 						Properties properties = new Properties();
@@ -277,13 +284,13 @@ public class WorldAccess implements ModInitializer {
 						LOGGER.error(e.getMessage());
 					}
 				} else {
-					LOGGER.info("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getUuidAsString(), context.player().getName().getString());
+					LOGGER.info("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getStringUUID(), context.player().getName().getString());
 				}
 			});
 		});
 		ServerPlayNetworking.registerGlobalReceiver(WorldAccess.FilePacket.ID, (payload, context) -> {
 			context.server().execute(() -> {
-				if (context.server().getPermissionLevel(context.player().getPlayerConfigEntry()).getLevel().getLevel()>=WritePermissionLevel) {
+				if (context.server().getProfilePermissions(context.player().nameAndId()).level().id()>=WritePermissionLevel) {
 					try {
 						Path path = FabricLoader.getInstance().getGameDir();
 						Properties properties = new Properties();
@@ -302,16 +309,16 @@ public class WorldAccess implements ModInitializer {
 											Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.APPEND);
 										} else {
 											// Possible attempt to bypass header filters
-											LOGGER.warn("Player with UUID {}({}) sent write instruction for filtered(non-standard-behaviour) file: {}", context.player().getUuidAsString(), context.player().getName().toString(), file);
+											LOGGER.warn("Player with UUID {}({}) sent write instruction for filtered(non-standard-behaviour) file: {}", context.player().getStringUUID(), context.player().getName().toString(), file);
 										}
 									} else {
 										Files.write(file, payload.data(), StandardOpenOption.WRITE, StandardOpenOption.CREATE);
 									}
 								} else {
-									WorldAccess.LOGGER.warn("Player with UUID {}({}) sent write instruction for filtered file: {}", context.player().getUuidAsString(), context.player().getName().toString(), file);
+									WorldAccess.LOGGER.warn("Player with UUID {}({}) sent write instruction for filtered file: {}", context.player().getStringUUID(), context.player().getName().toString(), file);
 								}
 							} else {
-								WorldAccess.LOGGER.error("Player with UUID {}({}) sent write instruction for out of bounds file: {}\nWrite requests are constrained to {}", context.player().getUuidAsString(), context.player().getName().toString(), file, path);
+								WorldAccess.LOGGER.error("Player with UUID {}({}) sent write instruction for out of bounds file: {}\nWrite requests are constrained to {}", context.player().getStringUUID(), context.player().getName().toString(), file, path);
 							}
 						} catch (IOException e) {
 							WorldAccess.LOGGER.error("IOException while writing file: {}",e.getMessage());
@@ -320,7 +327,7 @@ public class WorldAccess implements ModInitializer {
 						LOGGER.error(e.getMessage());
 					}
 				} else {
-					LOGGER.info("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getUuidAsString(), context.player().getName().toString());
+					LOGGER.info("Player with UUID {}({}) sent write command despite missing permissions.", context.player().getStringUUID(), context.player().getName().toString());
 				}
 			});
 		});

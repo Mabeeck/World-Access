@@ -1,6 +1,10 @@
 package mabeeck.worldaccess;
 
 import java.io.File;
+
+import com.mojang.authlib.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import org.apache.commons.io.FileUtils;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -10,12 +14,10 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.stream.Stream;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
@@ -25,7 +27,7 @@ public class WorldAccessClient implements ClientModInitializer {
 		// This entrypoint is suitable for setting up client-specific logic, such as rendering.
 		ClientPlayNetworking.registerGlobalReceiver(WorldAccess.ManagementPacket.ID, (payload, context) -> {
 			context.client().execute(() -> {
-				Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(URLEncoder.encode(MinecraftClient.getInstance().getCurrentServerEntry().address, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
+				Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(URLEncoder.encode(Minecraft.getInstance().getCurrentServer().ip, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
 				if (!Files.isDirectory(path)) {
 					new File(path.toUri()).mkdirs();
 				}
@@ -55,7 +57,7 @@ public class WorldAccessClient implements ClientModInitializer {
 		});
 		ClientPlayNetworking.registerGlobalReceiver(WorldAccess.FilePacket.ID, (payload, context) -> {
 			context.client().execute(() -> {
-				Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(URLEncoder.encode(MinecraftClient.getInstance().getCurrentServerEntry().address, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
+				Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(URLEncoder.encode(Minecraft.getInstance().getCurrentServer().ip, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
 				if (!Files.isDirectory(path)) {
 					new File(path.toUri()).mkdirs();
 				}
@@ -76,13 +78,13 @@ public class WorldAccessClient implements ClientModInitializer {
 			});
 		});
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-			if (MinecraftClient.getInstance().getCurrentServerEntry() != null) {
-				if (!MinecraftClient.getInstance().getCurrentServerEntry().isLocal()) {
-					dispatcher.register(ClientCommandManager.literal("worldaccess-push")
+			if (Minecraft.getInstance().getCurrentServer() != null) {
+				if (!Minecraft.getInstance().getCurrentServer().isLan()) {
+					dispatcher.register(ClientCommands.literal("worldaccess-push")
 							.executes(context -> {
-								context.getSource().sendFeedback(Text.literal("Pushing everything!"));
+								context.getSource().sendFeedback(Component.literal("Pushing everything!"));
 								try {
-									Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(URLEncoder.encode(MinecraftClient.getInstance().getCurrentServerEntry().address, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
+									Path path = FabricLoader.getInstance().getGameDir().resolve("fetched_worlds").resolve(URLEncoder.encode(Minecraft.getInstance().getCurrentServer().ip, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
 									Stream<Path> files = Files.walk(path.resolve("datapacks")).filter(it -> !it.getFileName().toString().equals(".git"));
 									ClientPlayNetworking.send(new WorldAccess.ManagementPacket(1, "datapack *"));
 									for (Path el : files.toList()) {
@@ -91,8 +93,8 @@ public class WorldAccessClient implements ClientModInitializer {
 										} else {
 											if (Files.size(el)>WorldAccess.MAX_PACKET_SIZE) {
 												byte[] bytes = Files.readAllBytes(el);
-												for (int i=WorldAccess.MAX_PACKET_SIZE;i<bytes.length;i+=WorldAccess.MAX_PACKET_SIZE) {
-													ClientPlayNetworking.send(new WorldAccess.FilePacket(path.relativize(el).toString(), Arrays.copyOfRange(bytes, i-WorldAccess.MAX_PACKET_SIZE, i), i!=WorldAccess.MAX_PACKET_SIZE));
+												for (int i=WorldAccess.MAX_PACKET_SIZE;i<=bytes.length+WorldAccess.MAX_PACKET_SIZE-bytes.length%WorldAccess.MAX_PACKET_SIZE;i+=WorldAccess.MAX_PACKET_SIZE) {
+													ClientPlayNetworking.send(new WorldAccess.FilePacket(path.relativize(el).toString(), Arrays.copyOfRange(bytes, i-WorldAccess.MAX_PACKET_SIZE, Math.min(i, bytes.length)), i!=WorldAccess.MAX_PACKET_SIZE));
 												}
 											} else {
 												ClientPlayNetworking.send(new WorldAccess.FilePacket(path.relativize(el).toString(), Files.readAllBytes(el), false));
