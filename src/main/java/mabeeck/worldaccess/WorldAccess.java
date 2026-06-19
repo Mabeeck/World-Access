@@ -2,7 +2,6 @@ package mabeeck.worldaccess;
 
 import net.fabricmc.api.ModInitializer;
 
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -21,6 +20,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Properties;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -116,7 +117,7 @@ public class WorldAccess implements ModInitializer {
 		for (String el : blacklisted_headers) {
 			boolean flagged = true;
 			try {
-				byte[] header = org.apache.commons.codec.binary.Hex.decodeHex(el);
+				byte[] header = Hex.decodeHex(el);
 				if (header.length <= data.length) {
 					for (int i = 0; i < header.length; i++) {
 						if (header[i] != data[i]) {
@@ -128,7 +129,7 @@ public class WorldAccess implements ModInitializer {
 					// If the file is smaller than the header it is to be compared with then it is not a match
 					flagged=false;
 				}
-			} catch (org.apache.commons.codec.DecoderException e) {
+			} catch (DecoderException e) {
                 LOGGER.error("Invalid file header: {}\nSkipping this filter.",el);
 				flagged = false;
 			}
